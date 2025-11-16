@@ -1,0 +1,92 @@
+Q.1) Read the current directory and display the name of the files, no of files in current 
+directory [10 Marks ] 
+#include <stdio.h>
+#include <dirent.h>
+int main() {
+ DIR *dir;
+ struct dirent *entry;
+ int count = 0;
+ dir = opendir(".");
+ if (dir == NULL) {
+ perror("opendir");
+ return 1;
+ }
+ printf("Files in current directory:\n");
+ while ((entry = readdir(dir)) != NULL) {
+ // Skip . and .. entries if desired
+ if (entry->d_name[0] == '.' && 
+ (entry->d_name[1] == '\0' ||
+(entry->d_name[1] == '.' && entry->d_name[2] == '\0'))) {
+ continue;
+ }
+ printf("%s\n", entry->d_name);
+ count++;
+ }
+ closedir(dir);
+ printf("Total number of files: %d\n", count);
+ return 0;
+}
+OUTPUT:
+Files in current directory:
+main.c
+notes.txt
+foo.txt
+bigfile.dat
+Total number of files: 4
+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+--------------------------------------------------
+Q.2) Write a C program to implement the following unix/linux command (use fork, pipe 
+and exec system call). Your program should block the signal Ctrl-C and Ctrl-\ signal 
+during the execution. i. Ls –l | wc –l [20 Marks ]
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <signal.h>
+#include <sys/wait.h>
+int main() {
+ int fd[2];
+ pid_t pid1, pid2;
+ sigset_t block_set, old_set;
+ // Block SIGINT (Ctrl-C) and SIGQUIT (Ctrl-\)
+ sigemptyset(&block_set);
+ sigaddset(&block_set, SIGINT);
+ sigaddset(&block_set, SIGQUIT);
+ sigprocmask(SIG_BLOCK, &block_set, &old_set);
+ if (pipe(fd) == -1) {
+ perror("pipe");
+ exit(1);
+ }
+pid1 = fork();
+ if (pid1 == 0) {
+ // First child: ls -l
+ sigprocmask(SIG_SETMASK, &old_set, NULL); // restore signals for child
+ close(fd[0]); // Close read end
+ dup2(fd[1], STDOUT_FILENO);
+ close(fd[1]);
+ execlp("ls", "ls", "-l", NULL);
+ perror("execlp ls");
+ exit(1);
+ }
+ pid2 = fork();
+ if (pid2 == 0) {
+ // Second child: wc -l
+ sigprocmask(SIG_SETMASK, &old_set, NULL); // restore signals for child
+ close(fd[1]); // Close write end
+ dup2(fd[0], STDIN_FILENO);
+ close(fd[0]);
+ execlp("wc", "wc", "-l", NULL);
+ perror("execlp wc");
+ exit(1);
+ }
+ // Parent: close pipe ends and wait for children
+close(fd[0]);
+ close(fd[1]);
+ waitpid(pid1, NULL, 0);
+ waitpid(pid2, NULL, 0);
+ // Restore original signal mask
+ sigprocmask(SIG_SETMASK, &old_set, NULL);
+ return 0;
+}
+OUTPUT:
+6
+
