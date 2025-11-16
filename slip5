@@ -1,0 +1,89 @@
+Q.1) Read the current directory and display the name of the files, no of files in current 
+directory [10 Marks ]
+#include <stdio.h>
+#include <dirent.h>
+int main() {
+ DIR *dir;
+ struct dirent *entry;
+ int count = 0;
+ dir = opendir(".");
+ if (dir == NULL) {
+ perror("Unable to open directory");
+ return 1;
+ }
+ printf("Files in current directory:\n");
+ while ((entry = readdir(dir)) != NULL) {
+ // Skip "." and ".."
+ if (entry->d_name[0] == '.' && 
+ (entry->d_name[1] == '\0' || 
+ (entry->d_name[1] == '.' && entry->d_name[2] == '\0'))) {
+ continue;
+}
+ printf("%s\n", entry->d_name);
+ count++;
+ }
+ closedir(dir);
+ printf("Total number of files: %d\n", count);
+ return 0;
+}
+OUTPUT:
+Files in current directory:
+main.c
+test.txt
+data.csv
+output.txt
+Total number of files: 4
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+---------------
+Q.2) Write a C program to create an unnamed pipe. The child process will write 
+following three messages to pipe and parent process display it.
+Message1 = “Hello World” 
+Message2 = “Hello SPPU” 
+Message3 = “Linux is Funny” [20 Marks]
+#include <stdio.h>
+#include <unistd.h>
+#include <stdlib.h>
+#include <string.h>
+int main() {
+ int fd[2];
+ pid_t pid;
+ char buffer[100];
+ if (pipe(fd) == -1) {
+ perror("pipe");
+ exit(1);
+ }
+ pid = fork();
+ if (pid < 0) {
+ perror("fork");
+ exit(1);
+ }
+ if (pid == 0) {
+ // Child process -- writer
+ close(fd[0]); // Close read-end
+ char *messages[] = {
+ "Hello World",
+ "Hello SPPU",
+ "Linux is Funny"
+ };
+ for(int i = 0; i < 3; i++) {
+ write(fd[1], messages[i], strlen(messages[i]) + 1); // +1 for '\0'
+ }
+ close(fd[1]);
+ exit(0);
+} else {
+ // Parent process -- reader
+ close(fd[1]); // Close write-end
+ printf("Messages from child:\n");
+ for(int i = 0; i < 3; i++) {
+ read(fd[0], buffer, sizeof(buffer));
+ printf("%s\n", buffer);
+ }
+ close(fd[0]);
+ }
+ return 0;
+}
+OUTPUT:
+Messages from child:
+Hello World
+Hello SPPU
+Linux is Funny
